@@ -19,11 +19,8 @@ router.post('/duration', (req, res) => {
     minutes > 180
   ) {
     return res.status(422).json({
-      error: {
-        message: 'allowedMinutes must be an integer between 0 and 180',
-        validation: {
-          allowedMinutes: ['Must be a number between 0 and 180']
-        }
+      errors: {
+        allowedMinutes: ['Must be a number between 0 and 180']
       }
     });
   }
@@ -33,7 +30,7 @@ router.post('/duration', (req, res) => {
   // Return format that Envoy expects for successful validation
   return res.status(200).json({
     data: {
-      allowedMinutes
+      allowedMinutes: minutes.toString()  // Convert to string as Envoy expects string values
     }
   });
 });
