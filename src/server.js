@@ -18,17 +18,23 @@ app.post('/duration', (req, res) => {
     minutes < 0 ||
     minutes > 180
   ) {
-    res.status(422).send([
-      {
-        field: 'allowedMinutes',
-        message: 'Must be a number between 0 and 180'
-      }
-    ]);
+    res.status(422).send({
+      errors: [{
+        status: "422",
+        title: "Validation Failed",
+        detail: "Must be a number between 0 and 180"
+      }]
+    });
     return;
   }
 
-  // Send back empty array for success
-  res.send([]);
+  // Return same format as request for success
+  res.send({
+    step: 0,
+    config: {
+      allowedMinutes: minutes.toString()
+    }
+  });
 });
 
 // Handle visitor sign-out webhook from Envoy
