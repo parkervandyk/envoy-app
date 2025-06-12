@@ -9,15 +9,35 @@ app.use(express.json());
 
 // Handle duration configuration from Envoy
 app.post('/duration', (req, res) => {
-  const minutes = req.body?.config?.allowedMinutes;
+  console.log('Raw request body:', JSON.stringify(req.body, null, 2));
   
-  // Validate that it's a number and in range
-  if (
-    typeof minutes !== 'number' ||
-    !Number.isInteger(minutes) ||
-    minutes < 0 ||
-    minutes > 180
-  ) {
+  const envoy = req.envoy;
+  console.log('Envoy meta:', envoy?.meta);
+  console.log('Envoy config:', envoy?.meta?.config);
+
+  let minutes;
+  try {
+    // Try getting from Envoy SDK first
+    minutes = envoy?.meta?.config?.allowedMinutes;
+    if (minutes === undefined) {
+      // Fallback to request body
+      minutes = req.body?.config?.allowedMinutes;
+    }
+    
+    // Convert to number if string
+    if (typeof minutes === 'string') {
+      minutes = parseInt(minutes, 10);
+    }
+
+    minutes = Number(minutes); // Ensure it's a number
+    
+    console.log('Parsed minutes:', minutes, 'Type:', typeof minutes);
+    
+    if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 0 || minutes > 180) {
+      throw new Error('Invalid range');
+    }
+  } catch (error) {
+    console.error('Validation error:', error);
     return res.status(422).json([
       {
         field: "allowedMinutes",
@@ -26,18 +46,20 @@ app.post('/duration', (req, res) => {
     ]);
   }
 
-  // Return exact same format as request
-  return res.json({
+  const response = {
     step: 0,
     config: {
-      allowedMinutes: minutes  // Keep as number, don't convert to string
+      allowedMinutes: minutes
     }
-  });
+  };
+  
+  console.log('Sending response:', JSON.stringify(response, null, 2));
+  return res.json(response);
 });
 
 // Handle visitor sign-out webhook from Envoy
 app.post('/webhook', async (req, res) => {
-  const envoy = req.envoy; // our middleware adds an "envoy" object to req
+  const envoy = req.envoy;
   const job = envoy.job;
   const config = envoy.meta.config;
   const visitor = envoy.payload;
