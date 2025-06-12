@@ -9,30 +9,28 @@ app.use(express.json());
 
 // Handle duration configuration from Envoy
 app.post('/duration', (req, res) => {
-  // Get the submitted value from the request body
-  const minutes = parseInt(req.body?.config?.allowedMinutes, 10);
-
+  const minutes = req.body?.config?.allowedMinutes;
+  
+  // Validate that it's a number and in range
   if (
-    isNaN(minutes) ||
+    typeof minutes !== 'number' ||
     !Number.isInteger(minutes) ||
     minutes < 0 ||
     minutes > 180
   ) {
-    res.status(422).send({
-      errors: [{
-        status: "422",
-        title: "Validation Failed",
-        detail: "Must be a number between 0 and 180"
-      }]
-    });
-    return;
+    return res.status(422).json([
+      {
+        field: "allowedMinutes",
+        message: "Must be a number between 0 and 180"
+      }
+    ]);
   }
 
-  // Return same format as request for success
-  res.send({
+  // Return exact same format as request
+  return res.json({
     step: 0,
     config: {
-      allowedMinutes: minutes.toString()
+      allowedMinutes: minutes  // Keep as number, don't convert to string
     }
   });
 });
