@@ -1,78 +1,68 @@
 # Envoy Visitor Duration App
 
-An Envoy integration that tracks visitor stay duration and notifies when visitors overstay their allotted time.
+Envoy integration that tracks visitor stay duration and notifies when visitors overstay their allotted time.
 
 ## Features
 
 - Configure allowed stay duration (0-180 minutes)
 - Automatically track visitor stay duration
 - Notify when visitors overstay their allotted time
-- No action on visitor sign-in
-- Message on visitor sign-out with stay duration information
+- Display stay duration summary in Envoy dashboard
+- Status indicators for within limit or overstay
 
 ## Setup
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
-2. Start the server:
+2. Set required environment variables:
+
+```bash
+ENVOY_CLIENT_ID=your_client_id
+ENVOY_CLIENT_SECRET=your_client_secret
+```
+
+3. Start the server:
+
 ```bash
 npm start
 ```
 
 For development with auto-reload:
+
 ```bash
 npm run dev
 ```
 
 ## Endpoints
 
-### Install Endpoint (`/install`)
-- Configures the allowed stay duration
-- Accepts: `{ "allowedMinutes": number }`
+### Duration Configuration (`/duration`)
+
+- Sets the allowed stay duration for visitors
+- Accepts POST request with payload: `{ "allowedMinutes": number }`
 - Validates input is between 0 and 180 minutes
 
-### Webhook Endpoint (`/webhook`)
-- Handles visitor events
-- Processes sign-out events
-- Calculates stay duration
-- Returns message indicating if visitor overstayed
+### Visitor Sign-out (`/visitor-sign-out`)
+
+- Handles visitor sign-out webhook events from Envoy
+- Automatically calculates stay duration
+- Compares against configured time limit
+- Displays summary in Envoy dashboard with:
+  - Status (Within Limit/Overstayed)
+  - Allotted time
+  - Actual duration
+  - Time difference (under/over limit)
 
 ## Environment Variables
 
+Required:
+
+- `ENVOY_CLIENT_ID`: Your Envoy integration client ID
+- `ENVOY_CLIENT_SECRET`: Your Envoy integration client secret
+
+Optional:
+
 - `PORT`: Server port (default: 3000)
-
-## Deployment
-
-The app can be deployed to any Node.js hosting platform. For Heroku deployment:
-
-```bash
-heroku create
-git push heroku main
-```
-
-## Testing
-
-You can test the endpoints using curl:
-
-```bash
-# Test install endpoint
-curl -X POST http://localhost:3000/install \
-  -H "Content-Type: application/json" \
-  -d '{"allowedMinutes": 120}'
-
-# Test webhook endpoint
-curl -X POST http://localhost:3000/webhook \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "visitor.sign_out",
-    "data": {
-      "visitor": {
-        "sign_in_time": "2025-06-11T14:00:00Z",
-        "sign_out_time": "2025-06-11T16:30:00Z"
-      }
-    }
-  }'
-```
