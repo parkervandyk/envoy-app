@@ -70,4 +70,4 @@ Optional:
 ## Currently Deployed
 
 The app is currently deployed on Heroku at:
-https://envoy-app-0544a2ff5c8e.herokuapp.com/
+[https://envoy-app-0544a2ff5c8e.herokuapp.com/](https://envoy-app-0544a2ff5c8e.herokuapp.com/)
