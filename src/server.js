@@ -1,124 +1,135 @@
-// Load environment variables
-require('dotenv').config();
+require("dotenv").config();
 
-const express = require('express');
-const { middleware, errorMiddleware } = require('@envoy/envoy-integrations-sdk');
+const express = require("express");
+const {
+	middleware,
+	errorMiddleware,
+} = require("@envoy/envoy-integrations-sdk");
 
-// Verify environment variables
 if (!process.env.ENVOY_CLIENT_ID || !process.env.ENVOY_CLIENT_SECRET) {
-  console.error('Missing required environment variables ENVOY_CLIENT_ID and/or ENVOY_CLIENT_SECRET');
-  process.exit(1);
+	console.error(
+		"Missing required environment variables ENVOY_CLIENT_ID and/or ENVOY_CLIENT_SECRET"
+	);
+	process.exit(1);
 }
 
 const app = express();
 
-// Add JSON parsing for all routes
 app.use(express.json());
 
-// Log all requests
 app.use((req, res, next) => {
-  console.log('Incoming request:', {
-    method: req.method,
-    path: req.path,
-    body: req.body
-  });
-  next();
+	next();
 });
 
-// Handle duration configuration from Envoy (no middleware needed)
-app.post('/duration', (req, res) => {
-  try {
-    console.log('Duration setup payload:', req.body);
+let globalConfig = {};
 
-    // Just return the validation array directly
-    if (!req.body?.config?.allowedMinutes || 
-        !Number.isInteger(req.body.config.allowedMinutes) || 
-        req.body.config.allowedMinutes < 0 || 
-        req.body.config.allowedMinutes > 180) {
-      console.log('Validation failed:', req.body?.config?.allowedMinutes);
-      return res.send([{
-        field: 'allowedMinutes',
-        message: 'Must be a number between 0 and 180'
-      }]);
-    }
+app.post("/duration", async (req, res) => {
+	try {
+		const allowedMinutes = req.body?.payload?.allowedMinutes;
 
-    // Return empty array for success
-    console.log('Validation passed');
-    return res.send([]);
-  } catch (error) {
-    console.error('Error in duration setup:', error);
-    return res.status(500).send([{
-      field: 'allowedMinutes',
-      message: 'Internal server error: ' + error.message
-    }]);
-  }
+		const errors = [];
+		if (
+			typeof allowedMinutes !== "number" ||
+			!Number.isInteger(allowedMinutes)
+		) {
+			errors.push({
+				field: "allowedMinutes",
+				message: "Must be a whole number",
+			});
+		}
+
+		if (allowedMinutes < 0 || allowedMinutes > 180) {
+			errors.push({
+				field: "allowedMinutes",
+				message: "Must be between 0 and 180 minutes",
+			});
+		}
+
+		if (errors.length > 0) {
+			console.log("Validation failed:", errors);
+			return res.json({ errors });
+		}
+
+		if (allowedMinutes !== undefined) {
+			globalConfig.allowedMinutes = allowedMinutes;
+		}
+
+		return res.json({ errors: [] });
+	} catch (error) {
+		res.status(500).json({
+			errors: [{ field: "general", message: "Internal server error" }],
+		});
+	}
 });
 
-// Add Envoy middleware only for webhook endpoint
-app.use('/webhook', middleware({
-  clientId: process.env.ENVOY_CLIENT_ID,
-  clientSecret: process.env.ENVOY_CLIENT_SECRET,
-  debug: true
-}));
+app.post(
+	"/visitor-sign-out",
+	middleware({
+		clientId: process.env.ENVOY_CLIENT_ID,
+		clientSecret: process.env.ENVOY_CLIENT_SECRET,
+		debug: true,
+		rawBody: true,
+		verifySignature: false
+	}),
+	async (req, res) => {
+		try {
+			const visitor = req.body.payload;
+			
+			if (!visitor?.attributes?.["signed-in-at"] || !visitor?.attributes?.["signed-out-at"]) {
+				return res.sendFailed("Missing sign-in or sign-out time in visitor data");
+			}
 
-// Handle visitor sign-out webhook from Envoy
-app.post('/webhook', async (req, res) => {
-  try {
-    console.log('Webhook payload:', JSON.stringify(req.body, null, 2));
-    
-    // Verify this is a sign-out event
-    if (req.body.type !== 'visitor.sign_out') {
-      return res.send({ message: 'Ignored non-sign-out event' });
-    }
+			const signInTime = new Date(visitor.attributes["signed-in-at"]);
+			const signOutTime = new Date(visitor.attributes["signed-out-at"]);
 
-    // Get visitor data directly from the webhook payload structure
-    const visitor = req.body.data?.visitor;
-    if (!visitor?.attributes) {
-      throw new Error('Missing visitor data or attributes');
-    }
+			const stayDurationMinutes = Math.round(
+				(signOutTime.getTime() - signInTime.getTime()) / (1000 * 60)
+			);
 
-    // For testing locally, use a default allowed minutes
-    const allowedMinutes = 20; // We can get this from config when running in Envoy
+			const allowedMinutes = req.body.meta?.config?.allowedMinutes ?? globalConfig.allowedMinutes;
+			
+			if (allowedMinutes === undefined) {
+				return res.sendFailed("No duration limit configured");
+			}
 
-    const signInTime = new Date(visitor.attributes['sign-in-time']);
-    const signOutTime = new Date(visitor.attributes['sign-out-time']);
-    
-    const stayDurationMinutes = Math.round(
-      (signOutTime.getTime() - signInTime.getTime()) / (1000 * 60)
-    );
+			const isOverstay = stayDurationMinutes > allowedMinutes;
+			const status = isOverstay ? "Overstayed" : "Within Limit";
+			const dashboardMessage = [
+				`Status: ${status} |`,
+				`Allotted Time for Visitors: ${allowedMinutes} minutes |`,
+				`Duration of Visit: ${stayDurationMinutes} minutes |`,
+				isOverstay
+					? `Exceeded limit by ${stayDurationMinutes - allowedMinutes} minutes`
+					: `Under limit by ${allowedMinutes - stayDurationMinutes} minutes`,
+			].join("\n");
 
-    let message = `Visitor stayed ${stayDurationMinutes} minutes.`;
-    
-    if (stayDurationMinutes > allowedMinutes) {
-      message += ` They overstayed the allotted time of ${allowedMinutes} minutes.`;
-    } else {
-      message += ' They left within the allotted time.';
-    }
+			return res.send({
+				message: dashboardMessage,
+				attachments: [{
+					type: "text",
+					label: "Summary",
+					value: dashboardMessage,
+					status: isOverstay ? "warning" : "success"
+				}]
+			});
+		} catch (error) {
+			console.error("Error processing webhook:", error);
+			return res.sendFailed(error.message);
+		}
+	}
+);
 
-    // When testing locally, just return the message
-    // In Envoy, the job.attach will happen automatically
-    res.send({ message });
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    res.status(400).send({ 
-      error: 'Error processing visitor data: ' + error.message 
-    });
-  }
-});
-
-// Add error middleware
 app.use(errorMiddleware());
 
-// Handle uncaught errors
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught exception:', error);
+process.on("uncaughtException", (error) => {
+	console.error("Uncaught exception:", error);
 });
 
-process.on('unhandledRejection', (error) => {
-  console.error('Unhandled rejection:', error);
+process.on("unhandledRejection", (error) => {
+	console.error("Unhandled rejection:", error);
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+	console.log(`Server running on port ${PORT}`);
 });
