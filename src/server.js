@@ -8,8 +8,8 @@ app.use(express.json());
 
 let allowedMinutes = null;
 
-// Install endpoint
-router.post('/install', (req, res) => {
+// Configuration endpoint for setting up duration limits
+router.post('/api/duration-limits/configure', (req, res) => {
   const { allowedMinutes: minutes } = req.body;
 
   // Validate input
@@ -33,8 +33,8 @@ router.post('/install', (req, res) => {
   });
 });
 
-// Webhook endpoint
-router.post('/webhook', (req, res) => {
+// Webhook endpoint for processing visitor events
+router.post('/api/visitor-events/process', (req, res) => {
   if (allowedMinutes === null) {
     return res.status(200).json({ message: 'No config set' });
   }
@@ -78,7 +78,8 @@ router.post('/webhook', (req, res) => {
   }
 });
 
-app.use(router);
+// Mount router with API prefix
+app.use('/api', router);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
