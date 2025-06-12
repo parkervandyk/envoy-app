@@ -9,9 +9,8 @@ app.use(express.json());
 
 // Handle duration configuration from Envoy
 app.post('/duration', (req, res) => {
-  const envoy = req.envoy; // our middleware adds an "envoy" object to req
-  const config = envoy.meta.config;
-  const minutes = parseInt(config.allowedMinutes, 10);
+  // Get the submitted value from the request body
+  const minutes = parseInt(req.body?.config?.allowedMinutes, 10);
 
   if (
     isNaN(minutes) ||
