@@ -3,8 +3,7 @@ const { middleware, errorMiddleware } = require('@envoy/envoy-integrations-sdk')
 
 const app = express();
 
-// Add Envoy middleware
-app.use(middleware());
+// Add JSON parsing middleware
 app.use(express.json());
 
 // Handle duration configuration from Envoy
@@ -33,6 +32,9 @@ app.post('/duration', (req, res) => {
   console.log('Response:', JSON.stringify(response, null, 2));
   return res.json(response);
 });
+
+// Add Envoy middleware only for webhook endpoint
+app.use('/webhook', middleware());
 
 // Handle visitor sign-out webhook from Envoy
 app.post('/webhook', async (req, res) => {
