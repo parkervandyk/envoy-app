@@ -10,7 +10,8 @@ let allowedMinutes = null;
 
 // Handle duration configuration from Envoy
 router.post('/duration', (req, res) => {
-  const minutes = parseInt(req.body.allowedMinutes, 10);
+  // Extract minutes from Envoy's request format
+  const minutes = parseInt(req.body.config?.allowedMinutes, 10);
 
   if (
     isNaN(minutes) ||
@@ -30,7 +31,7 @@ router.post('/duration', (req, res) => {
   // Return format that Envoy expects for successful validation
   return res.status(200).json({
     data: {
-      allowedMinutes: minutes.toString()  // Convert to string as Envoy expects string values
+      allowedMinutes: minutes.toString()
     }
   });
 });
