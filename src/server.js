@@ -19,10 +19,12 @@ router.post('/duration', (req, res) => {
     minutes < 0 ||
     minutes > 180
   ) {
-    return res.status(422).json({
-      errors: {
-        allowedMinutes: ['Must be a number between 0 and 180']
-      }
+    return res.status(400).json({
+      errors: [{
+        status: "400",
+        title: "Invalid",
+        detail: "allowedMinutes must be a number between 0 and 180"
+      }]
     });
   }
 
@@ -30,7 +32,8 @@ router.post('/duration', (req, res) => {
 
   // Return format that Envoy expects for successful validation
   return res.status(200).json({
-    data: {
+    step: 0,
+    config: {
       allowedMinutes: minutes.toString()
     }
   });
