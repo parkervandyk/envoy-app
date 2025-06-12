@@ -66,3 +66,8 @@ Required:
 Optional:
 
 - `PORT`: Server port (default: 3000)
+
+## Currently Deployed
+
+The app is currently deployed on Heroku at:
+https://envoy-app-0544a2ff5c8e.herokuapp.com/
