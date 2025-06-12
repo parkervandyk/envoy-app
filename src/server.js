@@ -1,22 +1,14 @@
 const express = require('express');
-const path = require('path');
 const { EnvoyAPI } = require('@envoy/envoy-integrations-sdk');
 
 const app = express();
 const router = express.Router();
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../public')));
 
 let allowedMinutes = null;
 
-// Serve the duration setup page
-router.get('/duration', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/duration.html'));
-});
-
-// Handle duration form submission
+// Handle duration configuration from Envoy
 router.post('/duration', (req, res) => {
   const minutes = parseInt(req.body.allowedMinutes, 10);
 
@@ -39,7 +31,7 @@ router.post('/duration', (req, res) => {
   });
 });
 
-// Webhook endpoint for visitor events
+// Handle visitor sign-out webhook from Envoy
 router.post('/webhook', (req, res) => {
   if (allowedMinutes === null) {
     return res.status(200).json({ message: 'No config set' });
