@@ -9,51 +9,28 @@ app.use(express.json());
 
 // Handle duration configuration from Envoy
 app.post('/duration', (req, res) => {
-  console.log('Raw request body:', JSON.stringify(req.body, null, 2));
+  console.log('Raw request:', JSON.stringify(req.body, null, 2));
+
+  // Get the value directly from request
+  const minutes = req.body?.config?.allowedMinutes;
   
-  const envoy = req.envoy;
-  console.log('Envoy meta:', envoy?.meta);
-  console.log('Envoy config:', envoy?.meta?.config);
-
-  let minutes;
-  try {
-    // Try getting from Envoy SDK first
-    minutes = envoy?.meta?.config?.allowedMinutes;
-    if (minutes === undefined) {
-      // Fallback to request body
-      minutes = req.body?.config?.allowedMinutes;
-    }
-    
-    // Convert to number if string
-    if (typeof minutes === 'string') {
-      minutes = parseInt(minutes, 10);
-    }
-
-    minutes = Number(minutes); // Ensure it's a number
-    
-    console.log('Parsed minutes:', minutes, 'Type:', typeof minutes);
-    
-    if (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 0 || minutes > 180) {
-      throw new Error('Invalid range');
-    }
-  } catch (error) {
-    console.error('Validation error:', error);
-    return res.status(422).json([
-      {
-        field: "allowedMinutes",
-        message: "Must be a number between 0 and 180"
-      }
-    ]);
+  // Basic validation
+  if (!Number.isInteger(minutes) || minutes < 0 || minutes > 180) {
+    return res.status(422).json([{
+      field: 'allowedMinutes',
+      message: 'Must be a number between 0 and 180'
+    }]);
   }
 
+  // Mirror the request format exactly
   const response = {
-    step: 0,
+    step: req.body.step,
     config: {
       allowedMinutes: minutes
     }
   };
-  
-  console.log('Sending response:', JSON.stringify(response, null, 2));
+
+  console.log('Response:', JSON.stringify(response, null, 2));
   return res.json(response);
 });
 
