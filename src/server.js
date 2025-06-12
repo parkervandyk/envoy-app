@@ -1,9 +1,11 @@
 const express = require('express');
-const { EnvoyAPI } = require('@envoy/envoy-integrations-sdk');
+const { middleware, errorMiddleware } = require('@envoy/envoy-integrations-sdk');
 
 const app = express();
 const router = express.Router();
 
+// Add Envoy middleware
+app.use(middleware());
 app.use(express.json());
 
 let allowedMinutes = null;
@@ -84,6 +86,8 @@ router.post('/webhook', (req, res) => {
   }
 });
 
+// Add error middleware
+app.use(errorMiddleware());
 app.use(router);
 
 const PORT = process.env.PORT || 3000;
